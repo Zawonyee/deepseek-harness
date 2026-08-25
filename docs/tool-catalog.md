@@ -17,6 +17,7 @@ This table connects model-visible tool names to the plugin package and service s
 | --- | --- | --- | --- | --- | --- |
 | `@deepseek-ai/dsh-tool-ask-user` | `ask_user_question` | `ctx.tools`, `ctx.userQuestions` | `tool/call`, `tool/result after a UI/provider answers the question` | - | ask_user_question pauses the tool call until the active UI provider returns a human answer. |
 | `@deepseek-ai/dsh-tools` | `run_code` | `ctx.tools`, `ctx.codeRuntime (execution time)`, `ctx.systemPrompt` | `tool/call`, `one tool/code-dispatch-start + tool/code-dispatch pair per bridged sub-call`, `tool/result` | - | Owned by the tool registry as a reserved transport outside filterable capability layers under `mode: code` / `mode: both` (see the Code Mode Agent Note). Under `code` it is the registry's only wire contribution; the other visible capabilities are declared in a generated SDK section in the loaded runtime's language, and a program calls them through bindings scheduled under the native concurrency contract (submission-ordered starts and policy; concurrency-safe bodies overlap up to `maxParallelSubCalls`) that re-enter the complete guarded tool pipeline and link each nested execution to this outer result. |
+| `@deepseek-ai/dsh-capability-controller` | `release_capability`, `request_capability` | `ctx.tools`, `ctx.systemPrompt` | `capability/change`, `tool/result` | - | The two control tools are always present in controlled compositions. Provider tools are intentionally absent from this default empty Registry harvest and appear only for an exact Agent after a committed grant. |
 | `@deepseek-ai/dsh-plan-mode` | `exit_plan_mode` | `ctx.tools`, `ctx.systemPrompt`, `ctx.userQuestions (execution time, opportunistic)` | `tool/call`, `plan/mode inactive on an approved review`, `tool/result` | - | exit_plan_mode stays in the model-facing schema while planning is inactive so transitions add no tool-catalog churn on top of the plan-policy change. Its execute path rejects calls outside plan mode; in plan mode it presents the plan over the user-questions seam (approve / keep planning with feedback), and approval logs plan mode inactive at the step boundary. |
 | `@deepseek-ai/dsh-tool-bash` | `bash` | `ctx.tools`, `ctx.shell`, `ctx.systemPrompt`, `ctx.shellEnv`, `ctx.jobs at call time for run_in_background` | `tool/call`, `tool/result` | - | The bash tool is the model-facing consumer of the bash executor seam. A `run_in_background` run registers with the generic `ctx.jobs` runtime and is collected/stopped through the `job_*` tools from `@deepseek-ai/dsh-tool-jobs`; the `enableRunInBackground` config (default true) removes the parameter entirely when disabled. |
 | `@deepseek-ai/dsh-tool-pwsh` | `pwsh` | `ctx.tools`, `ctx.shell`, `ctx.systemPrompt`, `ctx.shellEnv`, `ctx.jobs at call time for run_in_background` | `tool/call`, `tool/result` | - | The pwsh tool is the PowerShell-dialect consumer of the bash executor seam for Windows compositions (a PowerShell executor such as `@deepseek-ai/dsh-pwsh-local` backs `ctx.shell`); it mirrors the bash tool call-for-call minus sandbox controls — `run_in_background` runs register with the generic `ctx.jobs` runtime and are collected/stopped through the `job_*` tools, and the managed `DSH_*` environment comes from `@deepseek-ai/dsh-shell-env`. Each call runs in a fresh process (no persistent PTY session), with native `C:\...` paths and `$env:NAME` variables. |
@@ -147,6 +148,66 @@ Execute a TypeScript program against the available tools. Takes two required arg
 Source: [`packages/core/tools/src/code-mode.ts`](../packages/core/tools/src/code-mode.ts)
 
 Owned by the tool registry as a reserved transport outside filterable capability layers under `mode: code` / `mode: both` (see the Code Mode Agent Note). Under `code` it is the registry's only wire contribution; the other visible capabilities are declared in a generated SDK section in the loaded runtime's language, and a program calls them through bindings scheduled under the native concurrency contract (submission-ordered starts and policy; concurrency-safe bodies overlap up to `maxParallelSubCalls`) that re-enter the complete guarded tool pipeline and link each nested execution to this outer result.
+
+<a id="deepseek-aidsh-capability-controller"></a>
+
+## `@deepseek-ai/dsh-capability-controller`
+
+### `release_capability`
+
+Release one active capability lease owned by the calling Session. Pass the exact lease_id returned by request_capability when that lease is still active after its last required use.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "lease_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "lease_id"
+  ]
+}
+```
+
+Source: [`packages/capability/capability-controller/src/index.ts`](../packages/capability/capability-controller/src/index.ts)
+
+### `request_capability`
+
+Request one capability from the trusted Registry. Omit requested_scope to use its configured default; do not guess or probe alternative scopes. Save lease_id from a granted result for release_capability.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "capability": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "requested_scope": {
+      "type": "string",
+      "description": "Optional scope override. Omit this field to use the trusted Registry default; do not guess or retry alternative scopes.",
+      "enum": [
+        "turn",
+        "task",
+        "session",
+        "persistent"
+      ]
+    }
+  },
+  "required": [
+    "capability",
+    "reason"
+  ]
+}
+```
+
+Source: [`packages/capability/capability-controller/src/index.ts`](../packages/capability/capability-controller/src/index.ts)
+
+The two control tools are always present in controlled compositions. Provider tools are intentionally absent from this default empty Registry harvest and appear only for an exact Agent after a committed grant.
 
 <a id="deepseek-aidsh-plan-mode"></a>
 

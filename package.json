@@ -145,6 +145,7 @@
     "mock:llm": "node --import tsx packages/test-support/llm-mock-server/src/bin.ts",
     "benchmark:toolret:fetch": "tsx scripts/toolret/fetch.ts",
     "benchmark:toolret": "tsx scripts/toolret/benchmark.ts",
+    "eval:capability-controller": "pnpm run build:lib:host && tsx scripts/capability-controller-eval/loader-runner.ts",
     "dev:web": "tsx scripts/dev-web.ts --poll",
     "postinstall": "node scripts/install-lefthook.mjs"
   },

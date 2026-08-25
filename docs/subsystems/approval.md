@@ -28,6 +28,18 @@ type ApprovalRequestId = Branded<'ApprovalRequestId'>
 type ApprovalOutcome = 'allowed-once' | 'rejected' | 'cancelled' | 'unavailable'
 ```
 
+`requestWithReceipt()` returns the identifier and outcome from the same durable decision. Capability activation uses the identifier to correlate its own request audit with the approval pair without changing the compatible outcome-only `request()` API.
+
+```ts type-equiv
+/** The durable audit identifier and closed outcome produced by one approval request. */
+interface ApprovalReceipt {
+  /** Identifier shared by the request's `approval/asked` and `approval/decided` events. */
+  readonly id: ApprovalRequestId
+  /** Closed outcome recorded by the matching `approval/decided` event. */
+  readonly outcome: ApprovalOutcome
+}
+```
+
 ## Per-session policy
 
 `ApprovalPolicy` determines what happens before interactive answerers run. `ask` delegates to the composed answerer chain, whose no-answer default is `unavailable`; `never` deterministically returns `rejected` without dispatching any answerer. The effective value is the last `approval/policy` event in the session log, falling back to the service config. `setApprovalPolicy(session, policy)` is the single write path, so replay reconstructs the override.
@@ -130,6 +142,17 @@ setPolicy(agent: Agent, policy: ApprovalPolicy): void
  *   append commit point.
  */
 async request(req: ApprovalRequest): Promise<ApprovalOutcome>
+
+/**
+ * Ask the composed answerers once and return the exact durable audit receipt.
+ * The returned id is shared by the sole `approval/asked` and
+ * `approval/decided` events appended for this request.
+ * @param req - the pending decision (agent, tool identity, reason, signal).
+ * @returns the audit id and closed outcome from one decision.
+ * @throws when no turn is open or either audit event fails before the session
+ *   append commit point.
+ */
+async requestWithReceipt(req: ApprovalRequest): Promise<ApprovalReceipt>
 
 /**
  * Read the session override without applying the configured default.

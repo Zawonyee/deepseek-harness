@@ -61,6 +61,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   apiProxy: 'typert.md',
   approval: 'approval.md',
   attachments: 'attachment.md',
+  capabilityController: 'capability.md',
   shell: 'shell.md',
   shellEnv: 'shell.md',
   clientModules: 'client-modules.md',
@@ -223,6 +224,7 @@ export const EVENT_WALK_EXEMPTIONS: Record<string, string> = {
  * appear on more than one page.
  */
 export const LINK_MAP: Readonly<Record<string, string>> = {
+  AgentScopedCapabilityProvider: 'capability.md',
   Agent: 'core.md',
   AgentCancelCause: 'core.md',
   AgentFactory: 'core.md',
@@ -289,8 +291,13 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   SessionSurfaceSnapshot: 'session-query.md',
   ApprovalOutcome: 'approval.md',
   ApprovalPolicy: 'approval.md',
+  ApprovalReceipt: 'approval.md',
   ApprovalRequest: 'approval.md',
   ApprovalService: 'approval.md',
+  CapabilityReleaseRequest: 'capability.md',
+  CapabilityReleaseResult: 'capability.md',
+  CapabilityRequest: 'capability.md',
+  CapabilityRequestResult: 'capability.md',
   EncodedImageAttachment: 'attachment.md',
   ImageAttachmentRef: 'attachment.md',
   ImageRequestPolicy: 'attachment.md',

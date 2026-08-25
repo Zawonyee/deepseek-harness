@@ -1,0 +1,51 @@
+# The `controlled-doc` preset keeps document work available while placing every
+# optional Web or shell tool behind the Capability Controller. The host owns the
+# filesystem provider, sandbox, approval service, and shell executor.
+
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    text: >-
+      You are a document-focused agent powered by the {{model}} model. Your working directory is {{cwd}}. Use the filesystem tools for document work. Request web.search or shell.execute only when the task needs that capability. When calling request_capability, omit requested_scope so the Controller uses the configured Registry default; never guess or probe alternative scopes. Save lease_id from every granted result. After the last web_search needed for the current user task, call release_capability with that lease_id before giving the final answer. A successful shell call consumes the shell.execute lease; request shell.execute again before any later shell call.
+
+# This one Consumer contributes read, write, and edit. It contributes read_image
+# only when the host has an attachment store; it does not add search or shell.
+- id: tool-fs
+  name: '@deepseek-ai/dsh-tool-fs'
+
+# The Controller is an agent-owned service. Its providers share the same private
+# realm and only register trusted descriptors; they mount no Web or shell tool
+# until the Controller grants a lease.
+- id: capability-control
+  name: cordis:group
+  group: true
+  isolate:
+    capabilityController: true
+  config:
+    - id: capability-controller
+      name: '@deepseek-ai/dsh-capability-controller'
+      config:
+        capabilities:
+          - capability: web.search
+            provider: provider-web
+            risk: low
+            approvalRequired: true
+            defaultScope: session
+            allowedScopes:
+              - session
+            idleTtlSec: 600
+
+          - capability: shell.execute
+            provider: provider-shell
+            risk: critical
+            approvalRequired: true
+            defaultScope: turn
+            allowedScopes:
+              - turn
+            expireAfterSuccessfulUse: true
+
+    - id: provider-web
+      name: '@deepseek-ai/dsh-capability-controller/provider-web'
+
+    - id: provider-shell
+      name: '@deepseek-ai/dsh-capability-controller/provider-shell'

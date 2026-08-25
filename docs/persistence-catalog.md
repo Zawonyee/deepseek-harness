@@ -239,6 +239,22 @@ Types: [TokenUsage](subsystems/llm-streaming.md)
 
 Source: [`packages/core/session/src/types.ts:277`](../packages/core/session/src/types.ts)
 
+### `capability/*`
+
+<a id="capabilitychange--log-only"></a>
+
+#### `capability/change` — log-only
+
+```ts persistence-catalog
+/**
+ * Required request and lease transition for controlled dynamic
+ * capabilities. Unknown readers must refuse the log rather than omit it.
+ */
+'capability/change': CapabilityChange
+```
+
+Source: [`packages/capability/capability-controller/src/events.ts:146`](../packages/capability/capability-controller/src/events.ts)
+
 ### `command/*`
 
 <a id="commanddone--log-only"></a>

@@ -110,6 +110,15 @@ Registry service for the prompt inputs assembled before each model step.
 section(section: PromptSection): () => void
 
 /**
+ * Return the effective registered section definitions for one scope.
+ * The snapshot preserves definition identity so trusted hosts can verify
+ * that a scoped plugin contributed exactly the sections it declared.
+ * @param scope - optional scope whose shadowed section view to inspect.
+ * @returns a fresh array in registry order; mutating it does not alter registration.
+ */
+registeredSections(scope?: ScopeKey): PromptSection[]
+
+/**
  * Register ordered dynamic context in the calling context's scope. Scoped
  * entries shadow global entries with the same name.
  * @param context - the context contribution to register.
@@ -155,6 +164,8 @@ variable(name: string, provider: (context: AssembleContext) => string | undefine
  */
 async assemble(context: AssembleContext = {}): Promise<PromptAssembly>
 ```
+
+Types: [ScopeKey](scope.zh.md)
 
 Source: [`packages/core/system-prompt/src/index.ts`](../../packages/core/system-prompt/src/index.ts)
 

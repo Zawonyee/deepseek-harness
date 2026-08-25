@@ -395,6 +395,48 @@ Depends on: [`LocalConfig`](#deepseek-aidsh-bash-local)
 
 Source: [`packages/shell/bash-sandbox/src/index.ts:35`](../packages/shell/bash-sandbox/src/index.ts)
 
+<a id="deepseek-aidsh-capability-controller"></a>
+
+## `@deepseek-ai/dsh-capability-controller`
+
+Requires: `tools` · `systemPrompt`
+
+```ts config-catalog
+/** Loader-facing static configuration. Providers are registered separately through the trusted Host service. */
+export interface Config {
+  /** Trusted capability Registry rows available to this Controller instance. */
+  readonly capabilities: CapabilityDefinition[]
+}
+
+/** One trusted Registry row and its policy-relevant metadata. */
+export interface CapabilityDefinition {
+  /** Stable capability identifier requested by the model, for example `web.search`. */
+  readonly capability: string
+  /** Unique trusted Provider name that supplies this capability at runtime. */
+  readonly provider: string
+  /** Risk class used by approval policy and exposure reporting. */
+  readonly risk: CapabilityRisk
+  /** Whether every new activation must complete the user-approval flow. */
+  readonly approvalRequired: boolean
+  /** Lease scope selected when `request_capability` omits `requested_scope`. */
+  readonly defaultScope: CapabilityLeaseScope
+  /** Complete set of lease scopes callers may request for this capability. */
+  readonly allowedScopes: CapabilityLeaseScope[]
+  /** Optional idle timeout, in seconds, measured from grant or last successful use. */
+  readonly idleTtlSec?: number
+  /** Expire the lease after its first successful, non-aborted Provider tool call. */
+  readonly expireAfterSuccessfulUse?: boolean
+}
+
+/** Stable risk classification used by policy and audit ports. */
+export type CapabilityRisk = 'low' | 'medium' | 'high' | 'critical'
+
+/** Lease lifetimes enforced by turn, Goal, Agent, idle-TTL, and explicit-release lifecycle owners. */
+export type CapabilityLeaseScope = 'turn' | 'task' | 'session' | 'persistent'
+```
+
+Source: [`packages/capability/capability-controller/src/index.ts:90`](../packages/capability/capability-controller/src/index.ts)
+
 <a id="deepseek-aidsh-client-connection"></a>
 
 ## `@deepseek-ai/dsh-client-connection`
@@ -2989,7 +3031,7 @@ export interface Config {
 export type ToolPresentationMode = 'native' | 'code' | 'both'
 ```
 
-Source: [`packages/core/tools/src/index.ts:654`](../packages/core/tools/src/index.ts)
+Source: [`packages/core/tools/src/index.ts:656`](../packages/core/tools/src/index.ts)
 
 <a id="deepseek-aidsh-typert-loader"></a>
 

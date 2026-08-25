@@ -1,0 +1,4 @@
+- id: capability-controller-eval
+  name: ./composition.ts
+  config:
+    mode: raw-cordis

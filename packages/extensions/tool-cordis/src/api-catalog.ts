@@ -413,6 +413,13 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         throws: ['when no turn is open or either audit event fails before the session append commit point.'],
       },
       {
+        signature: 'async requestWithReceipt(req: ApprovalRequest): Promise<ApprovalReceipt>',
+        description: 'Ask the composed answerers once and return the exact durable audit receipt. The returned id is shared by the sole `approval/asked` and `approval/decided` events appended for this request.',
+        parameters: [{ name: 'req', description: 'the pending decision (agent, tool identity, reason, signal).' }],
+        returns: 'the audit id and closed outcome from one decision.',
+        throws: ['when no turn is open or either audit event fails before the session append commit point.'],
+      },
+      {
         signature: 'overrideOf(session: Session): ApprovalPolicy | undefined',
         description: 'Read the session override without applying the configured default.',
         parameters: [{ name: 'session', description: 'session whose log supplies the override.' }],
@@ -498,6 +505,36 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'request', description: 'the key, the method, the surface, and the cancel signal.' }],
         returns: '`authorized` once the flow\'s record is committed during this attempt and observed, or `cancelled` when the human declined or the caller withdrew.',
         throws: ['{AuthorizationError} code `NO_FLOW` when nothing claims the key, `UNKNOWN_METHOD` when the named method is not one the flow offers, `ALREADY_IN_FLIGHT` when an attempt is already running for the key, or `NOT_COMMITTED` when the flow resolved without committing a record during the attempt.'],
+      },
+    ],
+  },
+  {
+    key: 'capabilityController',
+    summary: 'Controller service and the only model-facing capability grant/release entry points.',
+    description: 'Controller service and the only model-facing capability grant/release entry points.',
+    methods: [
+      {
+        signature: 'readonly ports: CapabilityControllerPorts',
+        description: 'Trusted Registry, policy, lease, activation, and telemetry dependencies used by this instance.',
+        parameters: [],
+      },
+      {
+        signature: 'registerProvider(provider: AgentScopedCapabilityProvider): () => Promise<void>',
+        description: 'Register one trusted Host-owned provider for Loader-configured capabilities.',
+        parameters: [{ name: 'provider', description: 'immutable Provider descriptor and its exact Tool and Prompt-section ownership.' }],
+        returns: 'an async effect disposer that synchronously closes active authority before expiring its Leases.',
+      },
+      {
+        signature: 'async request(request: CapabilityRequest): Promise<CapabilityRequestResult>',
+        description: 'Resolve policy and activate at most one exact-Agent Lease for this capability. A request waits for preceding transitions before selecting reuse, activation, or denial.',
+        parameters: [{ name: 'request', description: 'exact Agent authority, capability, reason, and requested scope.' }],
+        returns: 'a structured grant or denial after any required approval settles.',
+      },
+      {
+        signature: 'async release(request: CapabilityReleaseRequest): Promise<CapabilityReleaseResult>',
+        description: 'Revoke only an active lease owned by the exact calling Agent object. Concurrent releases of the same lease share one deactivation and terminal result.',
+        parameters: [{ name: 'request', description: 'exact Agent authority and lease id to release.' }],
+        returns: 'the committed release or a structured denial.',
       },
     ],
   },
@@ -1901,6 +1938,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the exact Cordis effect disposer.',
       },
       {
+        signature: 'registeredSections(scope?: ScopeKey): PromptSection[]',
+        description: 'Return the effective registered section definitions for one scope. The snapshot preserves definition identity so trusted hosts can verify that a scoped plugin contributed exactly the sections it declared.',
+        parameters: [{ name: 'scope', description: 'optional scope whose shadowed section view to inspect.' }],
+        returns: 'a fresh array in registry order; mutating it does not alter registration.',
+      },
+      {
         signature: 'context(context: PromptContext): () => void',
         description: 'Register ordered dynamic context in the calling context\'s scope. Scoped entries shadow global entries with the same name.',
         parameters: [{ name: 'context', description: 'the context contribution to register.' }],
@@ -2870,6 +2913,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface AgentPreset {\n    readonly id: string;\n    readonly trust: PresetTrust;\n    readonly path: string;\n    readonly name?: string;\n    readonly description?: string;\n    readonly order?: number;\n    readonly broken?: string;\n}',
   },
   {
+    name: 'AgentScopedCapabilityProvider',
+    declaration: 'export interface AgentScopedCapabilityProvider {\n    readonly name: string;\n    readonly plugin: Plugin;\n    readonly config?: unknown;\n    readonly toolNames: readonly string[];\n    readonly promptSectionNames?: readonly string[];\n}',
+  },
+  {
     name: 'AgentSetup',
     declaration: 'export type AgentSetup = (agentCtx: Context) => AgentSetupCommit | Promise<AgentSetupCommit | void> | void;',
   },
@@ -2894,12 +2941,16 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type ApprovalPolicy = \'ask\' | \'never\';',
   },
   {
+    name: 'ApprovalReceipt',
+    declaration: 'export interface ApprovalReceipt {\n    readonly id: ApprovalRequestId;\n    readonly outcome: ApprovalOutcome;\n}',
+  },
+  {
     name: 'ApprovalRequest',
     declaration: 'export interface ApprovalRequest {\n    readonly agent: Agent;\n    readonly toolName: string;\n    readonly callId?: CallId;\n    readonly reason?: string;\n    readonly signal?: AbortSignal;\n}',
   },
   {
     name: 'ApprovalService',
-    declaration: 'export class ApprovalService extends Service {\n    static Config: z<Config>;\n    constructor(ctx: Context, public config: Config);\n    setPolicy(agent: Agent, policy: ApprovalPolicy): void;\n    async request(req: ApprovalRequest): Promise<ApprovalOutcome>;\n    overrideOf(session: Session): ApprovalPolicy | undefined;\n}',
+    declaration: 'export class ApprovalService extends Service {\n    static Config: z<Config>;\n    constructor(ctx: Context, public config: Config);\n    setPolicy(agent: Agent, policy: ApprovalPolicy): void;\n    async request(req: ApprovalRequest): Promise<ApprovalOutcome>;\n    async requestWithReceipt(req: ApprovalRequest): Promise<ApprovalReceipt>;\n    overrideOf(session: Session): ApprovalPolicy | undefined;\n}',
   },
   {
     name: 'AskUserQuestionAnswer',
@@ -3020,6 +3071,94 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'CancelOptions',
     declaration: 'export interface CancelOptions {\n    keepInbox?: boolean | undefined;\n}',
+  },
+  {
+    name: 'CapabilityActivation',
+    declaration: 'export interface CapabilityActivation {\n    readonly toolNames: readonly string[];\n}',
+  },
+  {
+    name: 'CapabilityControllerPorts',
+    declaration: 'export interface CapabilityControllerPorts {\n    readonly registry: CapabilityRegistry;\n    readonly policy: CapabilityPolicy;\n    readonly leases: CapabilityLeaseStore;\n    readonly adapter: CapabilityRuntimeAdapter;\n    readonly telemetry: CapabilityTelemetry;\n    readonly now?: () => string;\n}',
+  },
+  {
+    name: 'CapabilityDefinition',
+    declaration: 'export interface CapabilityDefinition {\n    readonly capability: string;\n    readonly provider: string;\n    readonly risk: CapabilityRisk;\n    readonly approvalRequired: boolean;\n    readonly defaultScope: CapabilityLeaseScope;\n    readonly allowedScopes: CapabilityLeaseScope[];\n    readonly idleTtlSec?: number;\n    readonly expireAfterSuccessfulUse?: boolean;\n}',
+  },
+  {
+    name: 'CapabilityLease',
+    declaration: 'export interface CapabilityLease {\n    readonly leaseId: string;\n    readonly sessionId: string;\n    readonly capability: string;\n    readonly provider: string;\n    readonly risk: CapabilityRisk;\n    readonly scope: CapabilityLeaseScope;\n    readonly binding: CapabilityLeaseBinding;\n    readonly approvalRequestId?: ApprovalRequestId;\n    readonly reason: string;\n    readonly status: CapabilityLeaseStatus;\n    readonly toolNames: readonly string[];\n    readonly grantedAt: string;\n    readonly lastUsedAt: string;\n    readonly revokedAt?: string;\n    readonly idleTtlSec?: number;\n    readonly expireAfterSuccessfulUse?: boolean;\n}',
+  },
+  {
+    name: 'CapabilityLeaseBinding',
+    declaration: 'export type CapabilityLeaseBinding = {\n    readonly kind: \'turn\';\n    readonly turn: number;\n} | {\n    readonly kind: \'task\';\n    readonly goalId: string;\n} | {\n    readonly kind: \'session\';\n} | {\n    readonly kind: \'persistent\';\n};',
+  },
+  {
+    name: 'CapabilityLeaseCreate',
+    declaration: 'export interface CapabilityLeaseCreate {\n    readonly sessionId: string;\n    readonly capability: string;\n    readonly provider: string;\n    readonly risk: CapabilityRisk;\n    readonly scope: CapabilityLeaseScope;\n    readonly session?: Session;\n    readonly requestId?: CapabilityRequestId;\n    readonly binding: CapabilityLeaseBinding;\n    readonly approvalRequestId?: ApprovalRequestId;\n    readonly reason: string;\n    readonly toolNames: readonly string[];\n    readonly now: string;\n    readonly idleTtlSec?: number;\n    readonly expireAfterSuccessfulUse?: boolean;\n}',
+  },
+  {
+    name: 'CapabilityLeaseScope',
+    declaration: 'export type CapabilityLeaseScope = \'turn\' | \'task\' | \'session\' | \'persistent\';',
+  },
+  {
+    name: 'CapabilityLeaseStatus',
+    declaration: 'export type CapabilityLeaseStatus = \'active\' | \'revoked\' | \'expired\';',
+  },
+  {
+    name: 'CapabilityLeaseStore',
+    declaration: 'export interface CapabilityLeaseStore {\n    findActive(query: {\n        readonly sessionId: string;\n        readonly capability: string;\n        readonly scope: CapabilityLeaseScope;\n    }): CapabilityLease | undefined;\n    create(input: CapabilityLeaseCreate): CapabilityLease;\n    touch(leaseId: string, now: string, session?: Session): CapabilityLease;\n    revoke(leaseId: string, now: string, session?: Session): CapabilityLease;\n    get(leaseId: string, session?: Session): CapabilityLease | undefined;\n    list(session?: Session): readonly CapabilityLease[];\n}',
+  },
+  {
+    name: 'CapabilityPolicy',
+    declaration: 'export interface CapabilityPolicy {\n    evaluate(input: {\n        readonly agent: Agent;\n        readonly definition: CapabilityDefinition;\n        readonly reason: string;\n        readonly requestedScope: CapabilityLeaseScope;\n    }): CapabilityPolicyDecision | Promise<CapabilityPolicyDecision>;\n}',
+  },
+  {
+    name: 'CapabilityPolicyDecision',
+    declaration: 'export type CapabilityPolicyDecision = {\n    readonly kind: \'allow\';\n} | {\n    readonly kind: \'approval-required\';\n    readonly reason: string;\n} | {\n    readonly kind: \'deny\';\n    readonly reason: string;\n};',
+  },
+  {
+    name: 'CapabilityRegistry',
+    declaration: 'export interface CapabilityRegistry {\n    get(capability: string): CapabilityDefinition | undefined;\n}',
+  },
+  {
+    name: 'CapabilityReleaseRequest',
+    declaration: 'export interface CapabilityReleaseRequest {\n    readonly agent: Agent;\n    readonly leaseId: string;\n}',
+  },
+  {
+    name: 'CapabilityReleaseResult',
+    declaration: 'export type CapabilityReleaseResult = {\n    readonly status: \'released\';\n    readonly leaseId: string;\n    readonly capability: string;\n} | {\n    readonly status: \'denied\';\n    readonly leaseId: string;\n    readonly code: \'lease-not-found\' | \'lease-not-owned\' | \'lease-not-active\' | \'deactivation-failed\';\n    readonly reason: string;\n};',
+  },
+  {
+    name: 'CapabilityRequest',
+    declaration: 'export interface CapabilityRequest {\n    readonly agent: Agent;\n    readonly capability: string;\n    readonly reason: string;\n    readonly requestedScope?: CapabilityLeaseScope;\n    readonly callId?: CallId;\n    readonly signal?: AbortSignal;\n}',
+  },
+  {
+    name: 'CapabilityRequestId',
+    declaration: 'export type CapabilityRequestId = Branded<\'CapabilityRequestId\'>;',
+  },
+  {
+    name: 'CapabilityRequestResult',
+    declaration: 'export type CapabilityRequestResult = {\n    readonly status: \'granted\';\n    readonly leaseId: string;\n    readonly capability: string;\n    readonly scope: CapabilityLeaseScope;\n    readonly reused: boolean;\n} | {\n    readonly status: \'denied\';\n    readonly capability: string;\n    readonly code: \'registry-miss\' | \'provider-unavailable\' | \'policy-denied\' | \'scope-not-allowed\' | \'task-goal-required\' | \'lease-scope-conflict\' | \'approval-rejected\' | \'approval-cancelled\' | \'approval-unavailable\' | \'request-cancelled\' | \'lifecycle-context-missing\' | \'activation-failed\';\n    readonly reason: string;\n};',
+  },
+  {
+    name: 'CapabilityRisk',
+    declaration: 'export type CapabilityRisk = \'low\' | \'medium\' | \'high\' | \'critical\';',
+  },
+  {
+    name: 'CapabilityRuntimeAdapter',
+    declaration: 'export interface CapabilityRuntimeAdapter {\n    activate(input: {\n        readonly agent: Agent;\n        readonly definition: CapabilityDefinition;\n        readonly scope: CapabilityLeaseScope;\n    }): Promise<CapabilityActivation>;\n    deactivate(input: {\n        readonly agent: Agent;\n        readonly lease: CapabilityLease;\n    }): Promise<void>;\n}',
+  },
+  {
+    name: 'CapabilityTelemetry',
+    declaration: 'export interface CapabilityTelemetry {\n    record(event: CapabilityTelemetryEvent): void | Promise<void>;\n}',
+  },
+  {
+    name: 'CapabilityTelemetryEvent',
+    declaration: 'export interface CapabilityTelemetryEvent {\n    readonly type: CapabilityTelemetryEventType;\n    readonly timestamp: string;\n    readonly sessionId: string;\n    readonly capability: string;\n    readonly risk?: CapabilityRisk;\n    readonly leaseScope?: CapabilityLeaseScope;\n    readonly leaseId?: string;\n    readonly reason: string;\n}',
+  },
+  {
+    name: 'CapabilityTelemetryEventType',
+    declaration: 'export type CapabilityTelemetryEventType = \'capability_requested\' | \'capability_granted\' | \'capability_denied\' | \'capability_reused\' | \'capability_released\' | \'capability_activation_failed\';',
   },
   {
     name: 'ClientResponse',
@@ -4599,7 +4738,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SystemPrompt',
-    declaration: 'export class SystemPrompt extends Service {\n    static Config: z<Config>;\n    constructor(ctx: Context, config: Config);\n    section(section: PromptSection): () => void;\n    context(context: PromptContext): () => void;\n    suppressRuntimeContext(): () => void;\n    tools(provider: (context: AssembleContext) => ToolProviderResult): () => void;\n    variable(name: string, provider: (context: AssembleContext) => string | undefined): () => void;\n    async assemble(context: AssembleContext = {}): Promise<PromptAssembly>;\n}',
+    declaration: 'export class SystemPrompt extends Service {\n    static Config: z<Config>;\n    constructor(ctx: Context, config: Config);\n    section(section: PromptSection): () => void;\n    registeredSections(scope?: ScopeKey): PromptSection[];\n    context(context: PromptContext): () => void;\n    suppressRuntimeContext(): () => void;\n    tools(provider: (context: AssembleContext) => ToolProviderResult): () => void;\n    variable(name: string, provider: (context: AssembleContext) => string | undefined): () => void;\n    async assemble(context: AssembleContext = {}): Promise<PromptAssembly>;\n}',
   },
   {
     name: 'TableKeyOf',
@@ -4847,7 +4986,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ToolRuntimeScheduler',
-    declaration: 'export interface ToolRuntimeScheduler {\n    prepare(exec: ToolExecutionInput): Promise<ScheduledToolPreparation>;\n    dispatch(exec: ToolRunContext): Promise<ScheduledToolDispatch>;\n    finalize(exec: ToolRunContext, result: ToolExecutionResult): Promise<ToolExecutionResult>;\n    finish(exec: ToolRunContext, result: ToolExecutionResult): ToolExecutionResult;\n}',
+    declaration: 'export interface ToolRuntimeScheduler {\n    isPreparedExecution(exec: Readonly<ToolExecution>): boolean;\n    prepare(exec: ToolExecutionInput): Promise<ScheduledToolPreparation>;\n    dispatch(exec: ToolRunContext): Promise<ScheduledToolDispatch>;\n    finalize(exec: ToolRunContext, result: ToolExecutionResult): Promise<ToolExecutionResult>;\n    finish(exec: ToolRunContext, result: ToolExecutionResult): ToolExecutionResult;\n}',
   },
   {
     name: 'ToolSchema',

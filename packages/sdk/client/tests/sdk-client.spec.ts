@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os'
 import { isAbsolute, join, relative, resolve as resolvePath } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
+import { KNOWN_SESSION_EVENT_TYPES } from '@deepseek-ai/dsh-session'
 import {
   DeepSeekHarness,
   HarnessClient,
@@ -30,6 +31,25 @@ afterEach(async () => {
 })
 
 type LaunchOverrides = Partial<ConstructorParameters<typeof HarnessClient>[0]>
+
+interface CapabilityChangeWireEvent {
+  readonly type: 'capability/change'
+  readonly seq: number
+  readonly time: number
+  readonly data: {
+    readonly kind: 'granted'
+    readonly version: 1
+    readonly requestId: string
+    readonly leaseId: string
+    readonly provider: string
+    readonly risk: 'low'
+    readonly scope: 'session'
+    readonly binding: { readonly kind: 'session' }
+    readonly toolNames: readonly string[]
+    readonly idleTtlMs: number
+    readonly revokeAfterSuccess: boolean
+  }
+}
 
 /** Launch options running the fake runtime on the current node (type stripping). */
 function fakeLaunch(env: Record<string, string> = {}, extra: LaunchOverrides = {}) {
@@ -123,6 +143,55 @@ describe('DeepSeekHarness', () => {
     // Same subprocess, second session: ids differ, protocol state is reusable.
     const second = await harness.run([{ type: 'text', text: 'again' }])
     expect(second.sessionId).not.toBe(first.sessionId)
+    await harness.close()
+  })
+
+  it('preserves a required capability/change event in notifications and RunResult JSON', async () => {
+    // Persistence uses this exact catalog to refuse unknown required events.
+    // Pinning the entry here makes this SDK snapshot fail if the capability
+    // event is accidentally emitted as a wire-only extension that replay
+    // cannot read back.
+    expect(KNOWN_SESSION_EVENT_TYPES.has('capability/change')).toBe(true)
+    const harness = harnessWith({ FAKE_CAPABILITY_CHANGE: '1' })
+    const seen: HarnessNotification[] = []
+    const result = await harness.run('grant web search', {
+      sessionId: 'capability-sdk',
+      onNotification: (notification) => { seen.push(notification) },
+    })
+    const expected: CapabilityChangeWireEvent = {
+      type: 'capability/change',
+      seq: 2,
+      time: 0,
+      data: {
+        kind: 'granted',
+        version: 1,
+        requestId: 'capreq-sdk-0001',
+        leaseId: 'caplease-sdk-0001',
+        provider: 'fixture-provider-web',
+        risk: 'low',
+        scope: 'session',
+        binding: { kind: 'session' },
+        toolNames: ['web_search'],
+        idleTtlMs: 600_000,
+        revokeAfterSuccess: false,
+      },
+    }
+    const capabilityEvent = result.events.find(
+      event => (event.type as string) === 'capability/change',
+    ) as unknown as CapabilityChangeWireEvent | undefined
+    const capabilityNotification = result.notifications.find(notification =>
+      notification.method === 'session.event'
+      && (notification.params.event as { readonly type?: unknown } | undefined)?.type === 'capability/change')
+    const streamed = seen.find(notification =>
+      notification.method === 'session.event'
+      && (notification.params.event as { readonly type?: unknown } | undefined)?.type === 'capability/change')
+
+    expect(capabilityEvent).toEqual(expected)
+    expect(capabilityNotification?.params).toEqual({ sessionId: 'capability-sdk', event: expected })
+    expect(streamed).toBe(capabilityNotification)
+    expect(Object.hasOwn(capabilityEvent ?? {}, 'ignorable')).toBe(false)
+    expect(typeof capabilityEvent?.data.requestId).toBe('string')
+    expect(typeof capabilityEvent?.data.leaseId).toBe('string')
     await harness.close()
   })
 

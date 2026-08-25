@@ -449,6 +449,8 @@ export type ScheduledToolDispatch =
  * @internal
  */
 export interface ToolRuntimeScheduler {
+  /** Test whether an execution was minted through this scheduler's staged prepare path. */
+  isPreparedExecution(exec: Readonly<ToolExecution>): boolean
   /** Materialize input, run the ordered pre-execute/guard gate, and decide what stage follows. */
   prepare(exec: ToolExecutionInput): Promise<ScheduledToolPreparation>
   /** Run only the around-dispatch/body stage. */
@@ -794,11 +796,15 @@ export class ToolRuntime extends Service {
 
   /** Internal staged view consumed by `dsh-agent-loop`'s parallel scheduler. */
   readonly [TOOL_RUNTIME_SCHEDULER]: ToolRuntimeScheduler = {
+    isPreparedExecution: exec => this.scheduledExecutions.has(exec),
     prepare: exec => this.prepareScheduledExecution(exec),
     dispatch: exec => this.dispatchScheduledExecution(exec),
     finalize: (exec, result) => this.finalizeScheduledExecution(exec, result),
     finish: (exec, result) => this.finishScheduledExecution(exec, result),
   }
+
+  /** Registry-minted executions that entered through the AgentLoop/transport staged scheduler. */
+  private readonly scheduledExecutions = new WeakSet<ToolExecution>()
 
   /** Context deferred by a running tool body, keyed by its scheduler-owned execution. */
   private deferredContexts = new WeakMap<ToolRunContext, UserMessage[]>()
@@ -1340,7 +1346,7 @@ export class ToolRuntime extends Service {
    * @returns the materialized final result.
    */
   async execute(exec: ToolExecutionInput): Promise<ToolExecutionResult> {
-    return this.prepareExecution(exec, prepared => this.completeScheduledExecution(prepared))
+    return this.prepareExecution(exec, prepared => this.completeScheduledExecution(prepared), false)
   }
 
   private async completeScheduledExecution(prepared: ScheduledToolPreparation): Promise<ToolExecutionResult> {
@@ -1457,16 +1463,18 @@ export class ToolRuntime extends Service {
    * @internal
    */
   private async prepareScheduledExecution(input: ToolExecutionInput): Promise<ScheduledToolPreparation> {
-    return this.prepareExecution(input, prepared => prepared)
+    return this.prepareExecution(input, prepared => prepared, true)
   }
 
   private async prepareExecution<T>(
     input: ToolExecutionInput,
     next: (prepared: ScheduledToolPreparation) => T | PromiseLike<T>,
+    scheduled: boolean,
   ): Promise<T> {
     const created = this.createExecution(input)
     if (created.kind !== 'ready') return next(created)
     const exec = created.exec
+    if (scheduled) this.scheduledExecutions.add(exec)
     if (this.callerCancelled(exec)) {
       return next({ kind: 'final-result', exec, result: toolAbortedBeforeDispatchResult() })
     }

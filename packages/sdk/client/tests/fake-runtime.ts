@@ -28,6 +28,8 @@
  *   string (wire-validation probes).
  * - `FAKE_EMPTY_MESSAGE`: the turn streams a text chunk, then records an empty
  *   assistant/message for a usage-only max-tokens step.
+ * - `FAKE_CAPABILITY_CHANGE`: emit one required `capability/change` grant with
+ *   opaque request/lease ids (SDK lossless-event projection probe).
  * - `FAKE_HANG_INIT`: never answer `initialize` (mid-handshake cancel probe).
  * - `FAKE_INIT_READY` + `FAKE_INIT_GO`: touch the READY file when `initialize`
  *   arrives, then poll for the GO file before answering (deterministic
@@ -95,6 +97,21 @@ function runTurn(sessionId: string): void {
     return
   }
   event(sessionId, 'turn/start', { turn: 0 })
+  if (env.FAKE_CAPABILITY_CHANGE !== undefined) {
+    event(sessionId, 'capability/change', {
+      kind: 'granted',
+      version: 1,
+      requestId: 'capreq-sdk-0001',
+      leaseId: 'caplease-sdk-0001',
+      provider: 'fixture-provider-web',
+      risk: 'low',
+      scope: 'session',
+      binding: { kind: 'session' },
+      toolNames: ['web_search'],
+      idleTtlMs: 600_000,
+      revokeAfterSuccess: false,
+    })
+  }
   event(sessionId, 'assistant/chunk', { turn: 0, step: 0, chunk: { type: 'text-delta', index: 0, text } })
   if (env.FAKE_MALFORMED_MESSAGE !== undefined) {
     event(sessionId, 'assistant/message', {

@@ -65,6 +65,7 @@ const GROUP_ORDER = [
   'attachment',
   'llm',
   'core',
+  'capability',
   'typert',
   'goal',
   'experimental',
@@ -286,6 +287,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     mode: 'core',
     consumers: ['agent-loop', 'tool-ask-user', 'tool-bash', 'tool-cordis', 'tool-fs', 'tool-terminal', 'tool-skill', 'tool-subagent', 'tool-todo', 'tool-web'],
     note: 'Registers capabilities, owns Code Mode transport, and routes calls through pre-policy, monotonic guards, around dispatch, post-policy, and final-result observation.',
+  },
+  {
+    key: 'capabilityController',
+    pkg: 'capability-controller',
+    title: 'Dynamic Tool authority',
+    mode: 'core',
+    note: 'Owns the closed Registry, exact-Agent Lease lifecycle, trusted Provider activation, schema reconciliation, and execution guards; Provider subpath plugins register through this service without granting authority.',
   },
   {
     key: 'userQuestions',

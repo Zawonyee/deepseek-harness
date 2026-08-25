@@ -881,6 +881,61 @@
       "source": "packages/interaction/user-questions/src/index.ts"
     },
     {
+      "doc": "docs/subsystems/capability.md",
+      "symbol": "CapabilityDefinition",
+      "source": "packages/capability/capability-controller/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/capability.md",
+      "symbol": "Config",
+      "source": "packages/capability/capability-controller/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/capability.md",
+      "symbol": "AgentScopedCapabilityProvider",
+      "source": "packages/capability/capability-controller/src/provider.ts"
+    },
+    {
+      "doc": "docs/subsystems/capability.md",
+      "symbol": "CapabilityLeaseScope",
+      "source": "packages/capability/capability-controller/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/capability.md",
+      "symbol": "CapabilityLeaseBinding",
+      "source": "packages/capability/capability-controller/src/events.ts"
+    },
+    {
+      "doc": "docs/subsystems/capability.md",
+      "symbol": "CapabilityLease",
+      "source": "packages/capability/capability-controller/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/capability.md",
+      "symbol": "CapabilityRequest",
+      "source": "packages/capability/capability-controller/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/capability.md",
+      "symbol": "CapabilityRequestResult",
+      "source": "packages/capability/capability-controller/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/capability.md",
+      "symbol": "CapabilityReleaseRequest",
+      "source": "packages/capability/capability-controller/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/capability.md",
+      "symbol": "CapabilityReleaseResult",
+      "source": "packages/capability/capability-controller/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/capability.md",
+      "symbol": "CapabilityChange",
+      "source": "packages/capability/capability-controller/src/events.ts"
+    },
+    {
       "doc": "docs/subsystems/approval.md",
       "symbol": "ApprovalRequestId",
       "source": "packages/interaction/user-approval/src/types.ts"
@@ -888,6 +943,11 @@
     {
       "doc": "docs/subsystems/approval.md",
       "symbol": "ApprovalOutcome",
+      "source": "packages/interaction/user-approval/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/approval.md",
+      "symbol": "ApprovalReceipt",
       "source": "packages/interaction/user-approval/src/types.ts"
     },
     {

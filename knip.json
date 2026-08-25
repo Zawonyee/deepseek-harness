@@ -24,6 +24,7 @@
   "workspaces": {
     ".": {
       "entry": [
+        "scripts/capability-controller-eval/compositions/composition.ts",
         "scripts/**/*.mjs",
         "scripts/**/*.cjs",
         "scripts/types/client-build-environment/index.d.ts"

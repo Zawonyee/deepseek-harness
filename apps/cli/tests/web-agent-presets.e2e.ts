@@ -13,13 +13,15 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import { resolveSessionPreset, SETTINGS_NAMESPACE } from '@deepseek-ai/dsh-agent-presets'
 import { applyChildComposition, childSessionMeta } from '@deepseek-ai/dsh-subagent'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { CallId, createUserMessage, LlmAdapter } from '@deepseek-ai/dsh-llm'
+import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-compaction-basic'
 import type {} from '@deepseek-ai/dsh-skill'
 import type {} from '@deepseek-ai/dsh-tools'
 // Type-only: resolves `ctx.get('sessionProjections')` and `ctx.get('tokenMeter')`.
 import type {} from '@deepseek-ai/dsh-session-projection'
 import type {} from '@deepseek-ai/dsh-token-meter'
+import type {} from '@deepseek-ai/dsh-web'
 
 const CONFIG_DIR = fileURLToPath(new URL('../config/', import.meta.url))
 const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url))
@@ -31,6 +33,7 @@ const CLAUDE_CODE_PACKAGE_DIR = join(REPO_ROOT, 'packages/subagent/subagent-clau
 /** The installation anchor whose dependency surface the preset module fallback mirrors. */
 const INSTALL_ANCHOR = join(REPO_ROOT, 'apps/cli/package.json')
 const MINIMAL_PROMPT = 'You are a helpful software engineer assistant.'
+const CAPABILITY_TEST_PROVIDER = 'capability-loader-e2e'
 const MINIMAL_BASH_DESCRIPTION = `Run commands in a bash shell
 * When invoking this tool, the contents of the "command" parameter does NOT need to be XML-escaped.
 * You don't have access to the internet via this tool.
@@ -39,6 +42,107 @@ const MINIMAL_BASH_DESCRIPTION = `Run commands in a bash shell
 * To inspect a particular line range of a file, e.g. lines 10-25, try 'sed -n 10,25p /path/to/the/file'.
 * Please avoid commands that may produce a very large amount of output.
 * Please run long lived commands in the background, e.g. 'sleep 10 &' or start a server in the background.`
+
+/** Keyless adapter that lets the real AgentLoop commit request headers without exercising a network provider. */
+class CapabilityHeaderAdapter extends LlmAdapter {
+  private pendingCapabilityRequest: { callId: CallId; reason: string } | undefined
+
+  requestCapability(reason: string): CallId {
+    if (this.pendingCapabilityRequest !== undefined) throw new Error('a capability request is already pending')
+    const callId = CallId(`web-capability-request-${randomUUID()}`)
+    this.pendingCapabilityRequest = { callId, reason }
+    return callId
+  }
+
+  async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+    options.signal?.throwIfAborted()
+    const request = this.pendingCapabilityRequest
+    if (request !== undefined) {
+      this.pendingCapabilityRequest = undefined
+      const args = JSON.stringify({ capability: 'web.search', reason: request.reason })
+      yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+      yield {
+        type: 'tool-call-delta', index: 0, id: request.callId,
+        name: 'request_capability', argumentsDelta: args,
+      }
+      yield {
+        type: 'block-end', index: 0,
+        block: { type: 'tool-call', id: request.callId, name: 'request_capability', arguments: args },
+      }
+      yield { type: 'usage', usage: { inputTokens: 1, outputTokens: 1 } }
+      yield { type: 'finish', reason: { kind: 'tool-calls' } }
+      return
+    }
+    yield { type: 'block-start', index: 0, blockType: 'text' }
+    yield { type: 'text-delta', index: 0, text: 'ok' }
+    yield { type: 'block-end', index: 0, block: { type: 'text', text: 'ok' } }
+    yield { type: 'usage', usage: { inputTokens: 1, outputTokens: 1 } }
+    yield { type: 'finish', reason: { kind: 'stop' } }
+  }
+}
+
+/** Scripted adapter that records the request where a released Provider Tool is replayed. */
+class CapabilityHistoryAdapter extends LlmAdapter {
+  readonly requests: GenerateOptions[] = []
+  private webSearchIssued = false
+
+  async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+    options.signal?.throwIfAborted()
+    this.requests.push(options)
+    if (this.requests.length === 1) {
+      const callId = CallId('released-provider-grant-call')
+      const args = JSON.stringify({
+        capability: 'web.search',
+        reason: 'Capture one Provider call in durable history',
+      })
+      yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+      yield {
+        type: 'tool-call-delta', index: 0, id: callId,
+        name: 'request_capability', argumentsDelta: args,
+      }
+      yield {
+        type: 'block-end', index: 0,
+        block: { type: 'tool-call', id: callId, name: 'request_capability', arguments: args },
+      }
+      yield { type: 'usage', usage: { inputTokens: 1, outputTokens: 1 } }
+      yield { type: 'finish', reason: { kind: 'tool-calls' } }
+      return
+    }
+    if (!this.webSearchIssued) {
+      const webVisible = options.tools?.some(tool => tool.name === 'web_search') === true
+      const callId = CallId(webVisible
+        ? 'released-provider-history-call'
+        : `released-provider-stale-call-${this.requests.length}`)
+      if (webVisible) this.webSearchIssued = true
+      yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+      yield {
+        type: 'tool-call-delta',
+        index: 0,
+        id: callId,
+        name: 'web_search',
+        argumentsDelta: '{"queries":["replay fixture"]}',
+      }
+      yield {
+        type: 'block-end',
+        index: 0,
+        block: {
+          type: 'tool-call',
+          id: callId,
+          name: 'web_search',
+          arguments: '{"queries":["replay fixture"]}',
+        },
+      }
+      yield { type: 'usage', usage: { inputTokens: 1, outputTokens: 1 } }
+      yield { type: 'finish', reason: { kind: 'tool-calls' } }
+      return
+    }
+    yield { type: 'block-start', index: 0, blockType: 'text' }
+    yield { type: 'text-delta', index: 0, text: 'ok' }
+    yield { type: 'block-end', index: 0, block: { type: 'text', text: 'ok' } }
+    yield { type: 'usage', usage: { inputTokens: 1, outputTokens: 1 } }
+    yield { type: 'finish', reason: { kind: 'stop' } }
+  }
+}
 
 /**
  * Boot the shipped Web composition, minus the rows that would bind a port,
@@ -150,6 +254,42 @@ async function bootWeb(
 const toolNames = (ctx: Context, agent?: Agent): string[] =>
   ctx.tools.schemas(agent).map(schema => schema.name).sort()
 
+let capabilityCallSequence = 0
+
+async function callTool(ctx: Context, agent: Agent, name: string, args: unknown) {
+  return await ctx.tools.execute({
+    callId: CallId(`capability-loader-${++capabilityCallSequence}`),
+    name,
+    arguments: args,
+    signal: new AbortController().signal,
+    agent,
+  })
+}
+
+function toolValue(result: Awaited<ReturnType<typeof callTool>>): Record<string, unknown> {
+  if (result.isError || typeof result.value !== 'object' || result.value === null || Array.isArray(result.value)) {
+    throw new Error('capability control tool did not return an object value')
+  }
+  return result.value
+}
+
+function latestRequestHeader(agent: Agent) {
+  const event = agent.session.events.findLast(entry => entry.type === 'request/header')
+  if (event?.type !== 'request/header') {
+    const turnEnd = agent.session.events.findLast(entry => entry.type === 'turn/end')
+    throw new Error(`AgentLoop did not commit a request/header; last turn: ${JSON.stringify(turnEnd)}`)
+  }
+  return event.data.header
+}
+
+async function runTextTurn(agent: Agent, text: string): Promise<void> {
+  agent.followup(createUserMessage({
+    content: [{ type: 'text', text }],
+    source: { kind: 'user' },
+  }))
+  await agent.whenIdle()
+}
+
 function toolParameterNames(ctx: Context, agent: Agent, toolName: string): string[] {
   const schema = ctx.tools.schemas(agent).find(tool => tool.name === toolName)
   if (schema === undefined) throw new Error(`missing tool schema ${toolName}`)
@@ -216,10 +356,11 @@ describe('the shipped Web composition', () => {
     }
   })
 
-  it('supplies both shipped presets, and only those, from the system root', async () => {
+  it('supplies all shipped presets, and only those, from the system root', async () => {
     const listed = await ctx.agentPresets.list()
 
-    expect(listed.map(preset => preset.id).sort()).toEqual(['code', 'cordis', 'minimal', 'standard'])
+    expect(listed.map(preset => preset.id).sort())
+      .toEqual(['code', 'controlled-doc', 'cordis', 'minimal', 'standard'])
     expect(listed.every(preset => preset.trust === 'system')).toBe(true)
     expect(ctx.agentPresets.defaultId).toBe('standard')
   })
@@ -242,6 +383,217 @@ describe('the shipped Web composition', () => {
         'workflow', 'write',
       ])
     } finally {
+      await handle.dispose()
+    }
+  })
+
+  it('composes controlled document work without pre-granting Web, shell, goal, or Cordis tools', async () => {
+    const handle = await ctx.agents.create({
+      sessionId: SessionId('preset-controlled-doc'),
+      setup: agentCtx => ctx.agentPresets.mount(agentCtx, 'controlled-doc').then(() => undefined),
+    })
+    try {
+      expect(toolNames(ctx, handle.agent)).toEqual([
+        'edit',
+        'read',
+        'read_image',
+        'release_capability',
+        'request_capability',
+        'write',
+      ])
+    } finally {
+      await handle.dispose()
+    }
+  })
+
+  it('requires Web approval, keeps rejection hidden, and changes only the exact controlled Agent across grant and release', async () => {
+    const adapter = new CapabilityHeaderAdapter()
+    const unregisterAdapter = ctx.llm.registerAdapter(
+      [CAPABILITY_TEST_PROVIDER],
+      adapter,
+    )
+    let approvalOutcome: 'allowed-once' | 'rejected' = 'rejected'
+    const unregisterApproval = ctx.on(
+      'approval/request',
+      () => Promise.resolve(approvalOutcome),
+      { prepend: true },
+    )
+    const createControlled = (id: string) => ctx.agents.create({
+      sessionId: SessionId(id),
+      meta: { cwd: REPO_ROOT },
+      agentOptions: { provider: CAPABILITY_TEST_PROVIDER, model: 'header-fixture' },
+      setup: agentCtx => ctx.agentPresets.mount(agentCtx, 'controlled-doc').then(() => undefined),
+    })
+    const runId = randomUUID()
+    const a = await createControlled(`preset-controlled-doc-transition-a-${runId}`)
+    const b = await createControlled(`preset-controlled-doc-transition-b-${runId}`)
+    try {
+      await Promise.all([
+        runTextTurn(a.agent, 'Record A before any optional capability is granted.'),
+        runTextTurn(b.agent, 'Record B before any optional capability is granted.'),
+      ])
+      expect(a.agent.session.events.filter(event => event.type === 'request/header')).toHaveLength(1)
+      expect(b.agent.session.events.filter(event => event.type === 'request/header')).toHaveLength(1)
+      const initialHeader = latestRequestHeader(a.agent)
+      expect(initialHeader.tools?.map(tool => tool.name)).not.toContain('web_search')
+      expect(initialHeader.system).not.toContain('Use the web_search tool')
+      expect(initialHeader.system).toContain(
+        'When calling request_capability, omit requested_scope so the Controller uses the configured Registry default',
+      )
+      expect(initialHeader.system).toContain(
+        'After the last web_search needed for the current user task, call release_capability with that lease_id before giving the final answer.',
+      )
+      expect(initialHeader.tools?.find(tool => tool.name === 'request_capability')?.description)
+        .toContain('Omit requested_scope to use its configured default')
+
+      adapter.requestCapability('Verify that declining Web keeps this document session offline')
+      await runTextTurn(a.agent, 'Ask for Web access and respect my rejection.')
+      expect(a.agent.session.events.findLast(event => event.type === 'capability/change'
+        && event.data.kind === 'denied')?.data).toMatchObject({
+        kind: 'denied', code: 'approval-rejected',
+      })
+      expect(a.agent.session.events.findLast(event => event.type === 'approval/decided')?.data)
+        .toMatchObject({ outcome: 'rejected' })
+      expect(toolNames(ctx, a.agent)).not.toContain('web_search')
+      expect(toolNames(ctx, b.agent)).not.toContain('web_search')
+      expect(toolNames(ctx)).not.toContain('web_search')
+
+      const rejectedHeader = latestRequestHeader(a.agent)
+      expect(rejectedHeader.tools?.map(tool => tool.name)).not.toContain('web_search')
+      expect(rejectedHeader.system).not.toContain('Use the web_search tool')
+
+      approvalOutcome = 'allowed-once'
+      adapter.requestCapability('Find current public information for this document')
+      await runTextTurn(a.agent, 'Ask again for Web access and continue after I allow it.')
+      const grant = a.agent.session.events.findLast(event => event.type === 'capability/change'
+        && event.data.kind === 'granted')
+      expect(grant?.data).toMatchObject({ kind: 'granted', scope: 'session' })
+      expect(toolNames(ctx, a.agent)).toContain('web_search')
+      expect(toolNames(ctx, b.agent)).not.toContain('web_search')
+      expect(toolNames(ctx)).not.toContain('web_search')
+
+      const grantedHeader = latestRequestHeader(a.agent)
+      expect(grantedHeader.tools?.map(tool => tool.name)).toContain('web_search')
+      expect(grantedHeader.system).toContain('Use the web_search tool')
+      expect(latestRequestHeader(b.agent).tools?.map(tool => tool.name)).not.toContain('web_search')
+      expect(latestRequestHeader(b.agent).system).not.toContain('Use the web_search tool')
+
+      if (grant?.type !== 'capability/change' || grant.data.kind !== 'granted') {
+        throw new Error('grant did not commit a Lease')
+      }
+      expect(toolValue(await callTool(ctx, a.agent, 'release_capability', {
+        lease_id: grant.data.leaseId,
+      }))).toMatchObject({ status: 'released', capability: 'web.search' })
+
+      await runTextTurn(a.agent, 'Record the first model request after releasing Web.')
+      const releasedHeader = latestRequestHeader(a.agent)
+      expect(releasedHeader.tools?.map(tool => tool.name)).not.toContain('web_search')
+      expect(releasedHeader.system).not.toContain('Use the web_search tool')
+      expect(toolNames(ctx, a.agent)).not.toContain('web_search')
+      expect(toolNames(ctx, b.agent)).not.toContain('web_search')
+      expect(toolNames(ctx)).not.toContain('web_search')
+    } finally {
+      await b.dispose()
+      await a.dispose()
+      unregisterApproval()
+      unregisterAdapter()
+    }
+  }, 120_000)
+
+  it('replays a released Provider Tool call and result without re-exposing its schema', async () => {
+    const adapter = new CapabilityHistoryAdapter()
+    const unregisterAdapter = ctx.llm.registerAdapter([CAPABILITY_TEST_PROVIDER], adapter)
+    const unregisterApproval = ctx.on(
+      'approval/request',
+      () => Promise.resolve<'allowed-once'>('allowed-once'),
+      { prepend: true },
+    )
+    const search = vi.spyOn(ctx.web, 'search').mockResolvedValue({
+      content: 'replay fixture result',
+      sources: [{ url: 'https://example.test/replay' }],
+      truncated: false,
+    })
+    const handle = await ctx.agents.create({
+      sessionId: SessionId(`preset-controlled-doc-history-${randomUUID()}`),
+      meta: { cwd: REPO_ROOT },
+      agentOptions: { provider: CAPABILITY_TEST_PROVIDER, model: 'history-fixture' },
+      setup: agentCtx => ctx.agentPresets.mount(agentCtx, 'controlled-doc').then(() => undefined),
+    })
+    try {
+      await runTextTurn(handle.agent, 'Request Web, then search once so the Provider call enters history.')
+      const grant = handle.agent.session.events.findLast(event => event.type === 'capability/change'
+        && event.data.kind === 'granted')
+      if (grant?.type !== 'capability/change' || grant.data.kind !== 'granted') {
+        throw new Error('grant did not commit a Lease')
+      }
+      const requestCountBeforeRelease = adapter.requests.length
+      expect(requestCountBeforeRelease).toBeGreaterThanOrEqual(3)
+      expect(adapter.requests.map(request => request.tools?.map(tool => tool.name) ?? []))
+        .toEqual(expect.arrayContaining([expect.arrayContaining(['web_search'])]))
+      expect(handle.agent.session.events.filter(event => event.type === 'tool/call')
+        .map(event => event.data.name)).toEqual(expect.arrayContaining(['request_capability', 'web_search']))
+      expect(search).toHaveBeenCalledTimes(1)
+
+      expect(toolValue(await callTool(ctx, handle.agent, 'release_capability', {
+        lease_id: grant.data.leaseId,
+      }))).toMatchObject({ status: 'released', capability: 'web.search' })
+      await runTextTurn(handle.agent, 'Continue after Web has been released.')
+
+      expect(adapter.requests.length).toBeGreaterThan(requestCountBeforeRelease)
+      const replayed = adapter.requests.at(-1)
+      expect(replayed?.tools?.map(tool => tool.name)).not.toContain('web_search')
+      expect(replayed?.messages.some(message => message.role === 'assistant'
+        && message.content.some(block => block.type === 'tool-call'
+          && block.id === 'released-provider-history-call'
+          && block.name === 'web_search'))).toBe(true)
+      expect(replayed?.messages.some(message => message.role === 'user'
+        && message.content.some(block => block.type === 'tool-result'
+          && block.toolCallId === 'released-provider-history-call'))).toBe(true)
+    } finally {
+      await handle.dispose()
+      search.mockRestore()
+      unregisterApproval()
+      unregisterAdapter()
+    }
+  }, 120_000)
+
+  it('keeps raw Cordis absent and rejects a late accidental registration before its body runs', async () => {
+    const handle = await ctx.agents.create({
+      sessionId: SessionId(`preset-controlled-doc-raw-cordis-${randomUUID()}`),
+      setup: agentCtx => ctx.agentPresets.mount(agentCtx, 'controlled-doc').then(() => undefined),
+    })
+    let accidentalFiber: ReturnType<Context['plugin']> | undefined
+    try {
+      const direct = await callTool(ctx, handle.agent, 'cordis_run', { code: 'return 1' })
+      expect(direct).toMatchObject({
+        isError: true,
+        error: { info: { code: 'UNKNOWN_TOOL' } },
+      })
+
+      const executed = vi.fn(() => Promise.resolve('unexpected'))
+      accidentalFiber = handle.agent.ctx.plugin((pluginCtx) => {
+        pluginCtx.tools.register({
+          name: 'cordis_run',
+          description: 'Accidental late Cordis tool.',
+          parameters: {},
+          output: {
+            schema: { type: 'string' },
+            render: (_args, value) => [{ type: 'text', text: value as string }],
+          },
+          execute: executed,
+        })
+      })
+      await accidentalFiber.await()
+      expect(toolNames(ctx, handle.agent)).toContain('cordis_run')
+      expect((await ctx.systemPrompt.assemble({ agent: handle.agent, scope: handle.agent }))
+        .tools.map(tool => tool.name)).not.toContain('cordis_run')
+
+      const denied = await callTool(ctx, handle.agent, 'cordis_run', {})
+      expect(denied.isError).toBe(true)
+      expect(denied.error?.message).toContain('not available in a controlled Agent')
+      expect(executed).not.toHaveBeenCalled()
+    } finally {
+      await accidentalFiber?.dispose()
       await handle.dispose()
     }
   })

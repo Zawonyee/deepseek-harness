@@ -1,0 +1,3 @@
+name: 受控文档模式
+description: 面向文档工作的最小 Agent；文件读写是基础能力，网页检索与 Shell 只能通过受控申请临时获得。
+order: 5
