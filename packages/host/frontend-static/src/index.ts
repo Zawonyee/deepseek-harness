@@ -76,10 +76,16 @@ export async function serveStatic(
   }
   let body: string | Buffer
   let type: string
+  let noStore = false
   try {
     if (target === distRoot || target === distIndex) {
       body = await renderIndex()
       type = HTML_MIME
+      // The entry selects hashed client bundles and receives the current boot
+      // manifest through index taps. Reusing it after a source update can pair
+      // an old client with the current host wire, so every navigation must
+      // read the current entry.
+      noStore = true
     } else {
       body = await readFile(target)
       type = MIME[extname(target)] ?? 'application/octet-stream'
@@ -92,7 +98,10 @@ export async function serveStatic(
     res.end()
     return
   }
-  res.writeHead(200, { 'content-type': type })
+  res.writeHead(200, {
+    'content-type': type,
+    ...(noStore ? { 'cache-control': 'no-store' } : {}),
+  })
   res.end(body)
 }
 
