@@ -390,6 +390,17 @@ export class SystemPrompt extends Service {
   }
 
   /**
+   * Return the effective registered section definitions for one scope.
+   * The snapshot preserves definition identity so trusted hosts can verify
+   * that a scoped plugin contributed exactly the sections it declared.
+   * @param scope - optional scope whose shadowed section view to inspect.
+   * @returns a fresh array in registry order; mutating it does not alter registration.
+   */
+  registeredSections(scope?: ScopeKey): PromptSection[] {
+    return [...this.layers.merge(scope, layer => layer.sections).values()]
+  }
+
+  /**
    * Register ordered dynamic context in the calling context's scope. Scoped
    * entries shadow global entries with the same name.
    * @param context - the context contribution to register.

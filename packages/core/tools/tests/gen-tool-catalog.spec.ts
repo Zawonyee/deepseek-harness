@@ -31,7 +31,7 @@ describe('gen-tool-catalog collectToolCatalog', () => {
       'cordis_undefine', 'create_goal', 'edit', 'exit_plan_mode', 'followup_task', 'get_goal', 'glob', 'grep',
       'interrupt_agent', 'interrupt_agent', 'job_kill', 'job_list', 'job_output',
       'list_agents', 'list_agents', 'lsp', 'pwsh', 'pwsh', 'ralph',
-      'read', 'read_image', 'report', 'run_code', 'schedule_create', 'schedule_delete',
+      'read', 'read_image', 'release_capability', 'report', 'request_capability', 'run_code', 'schedule_create', 'schedule_delete',
       'schedule_list', 'send_message', 'send_message', 'session_event_read', 'session_event_search',
       'session_event_trace', 'session_search', 'session_trace', 'skill', 'spawn_teammate',
       'str_replace_editor', 'subagent', 'team_task_create',
@@ -67,6 +67,11 @@ describe('gen-tool-catalog collectToolCatalog', () => {
       interrupt_agent: 'packages/subagent/tool-subagent-control/src/index.ts',
       list_agents: 'packages/subagent/tool-subagent-control/src/list-agents.ts',
       send_message: 'packages/subagent/tool-subagent-control/src/index.ts',
+    })
+    const capability = catalog.find(entry => entry.pkg === '@deepseek-ai/dsh-capability-controller')
+    expect(capability?.sources).toEqual({
+      release_capability: 'packages/capability/capability-controller/src/index.ts',
+      request_capability: 'packages/capability/capability-controller/src/index.ts',
     })
   })
 

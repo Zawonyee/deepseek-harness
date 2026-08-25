@@ -19,6 +19,7 @@ import SqliteSessionQueryEngine from '@deepseek-ai/dsh-session-query-sqlite'
 import GoalService from '@deepseek-ai/dsh-goal'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { type Config as ToolsConfig } from '@deepseek-ai/dsh-tools'
+import CapabilityController from '../packages/capability/capability-controller/src/index.ts'
 import LocalBashExecutor from '@deepseek-ai/dsh-bash-local'
 import * as BashEnvPlugin from '@deepseek-ai/dsh-shell-env'
 import { PwshLocalExecutor } from '@deepseek-ai/dsh-pwsh-local'
@@ -212,6 +213,18 @@ const TOOL_PACKAGES: ToolPackage[] = [
     async mount() {},
     note:
       'Owned by the tool registry as a reserved transport outside filterable capability layers under `mode: code` / `mode: both` (see the Code Mode Agent Note). Under `code` it is the registry\'s only wire contribution; the other visible capabilities are declared in a generated SDK section in the loaded runtime\'s language, and a program calls them through bindings scheduled under the native concurrency contract (submission-ordered starts and policy; concurrency-safe bodies overlap up to `maxParallelSubCalls`) that re-enter the complete guarded tool pipeline and link each nested execution to this outer result.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-capability-controller',
+    dir: 'capability-controller',
+    source: 'packages/capability/capability-controller/src/index.ts',
+    requires: ['ctx.tools', 'ctx.systemPrompt'],
+    writes: ['capability/change', 'tool/result'],
+    async mount(ctx) {
+      await ctx.plugin(CapabilityController, { capabilities: [] })
+    },
+    note:
+      'The two control tools are always present in controlled compositions. Provider tools are intentionally absent from this default empty Registry harvest and appear only for an exact Agent after a committed grant.',
   },
   {
     pkg: '@deepseek-ai/dsh-plan-mode',

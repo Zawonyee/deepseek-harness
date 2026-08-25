@@ -148,6 +148,7 @@ External packages **directly declared** only by repository tooling, test infrast
 | [`eslint-plugin-sonarjs`](https://github.com/SonarSource/SonarJS) | LGPL-3.0-only |
 | [`execa`](https://github.com/sindresorhus/execa) | MIT |
 | [`fast-check`](https://github.com/dubzzz/fast-check) | MIT |
+| [`hyparquet`](https://github.com/hyparam/hyparquet) | MIT |
 | [`istanbul-lib-report`](https://github.com/istanbuljs/istanbuljs) | BSD-3-Clause |
 | [`jscpd`](https://github.com/kucherenko/jscpd) | MIT |
 | [`jsdom`](https://github.com/jsdom/jsdom) | MIT |

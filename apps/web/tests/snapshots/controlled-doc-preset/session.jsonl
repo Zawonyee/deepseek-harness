@@ -1,0 +1,18 @@
+{"type":"session","version":0,"id":"{{sessionId}}","createdAt":1787616000000,"cwd":"{{cwd}}","agentPreset":"controlled-doc"}
+{"type":"user/message","data":{"content":[{"type":"text","text":"Request web.search for source inspection, then reply exactly CONTROLLED_DOC_GRANTED_OK and stop."}],"source":{"kind":"user","rpcId":"{{rpcId}}"}},"surfaceOp":"append"}
+{"type":"assistant/chunk","data":{"turn":1,"step":1,"chunk":{"type":"block-start","index":0,"blockType":"tool-call"}}}
+{"type":"assistant/chunk","data":{"turn":1,"step":1,"chunk":{"type":"tool-call-delta","index":0,"id":"call_request_web","name":"request_capability","argumentsDelta":"{\"capability\":\"web.search\",\"reason\":\"Inspect one current source for the document.\"}"}}}
+{"type":"assistant/chunk","data":{"turn":1,"step":1,"chunk":{"type":"block-end","index":0,"block":{"type":"tool-call","id":"call_request_web","name":"request_capability","arguments":"{\"capability\":\"web.search\",\"reason\":\"Inspect one current source for the document.\"}"}}}}
+{"type":"assistant/chunk","data":{"turn":1,"step":1,"chunk":{"type":"usage","usage":{"inputTokens":10,"outputTokens":5}}}}
+{"type":"assistant/chunk","data":{"turn":1,"step":1,"chunk":{"type":"finish","reason":{"kind":"tool-calls"}}}}
+{"type":"assistant/chunk","data":{"turn":1,"step":2,"chunk":{"type":"block-start","index":0,"blockType":"text"}}}
+{"type":"assistant/chunk","data":{"turn":1,"step":2,"chunk":{"type":"text-delta","index":0,"text":"CONTROLLED_DOC_GRANTED_OK"}}}
+{"type":"assistant/chunk","data":{"turn":1,"step":2,"chunk":{"type":"block-end","index":0,"block":{"type":"text","text":"CONTROLLED_DOC_GRANTED_OK"}}}}
+{"type":"assistant/chunk","data":{"turn":1,"step":2,"chunk":{"type":"usage","usage":{"inputTokens":12,"outputTokens":4}}}}
+{"type":"assistant/chunk","data":{"turn":1,"step":2,"chunk":{"type":"finish","reason":{"kind":"stop"}}}}
+{"type":"user/message","data":{"content":[{"type":"text","text":"Reply exactly CONTROLLED_DOC_RELEASED_OK and stop."}],"source":{"kind":"user","rpcId":"{{rpcId}}"}},"surfaceOp":"append"}
+{"type":"assistant/chunk","data":{"turn":2,"step":1,"chunk":{"type":"block-start","index":0,"blockType":"text"}}}
+{"type":"assistant/chunk","data":{"turn":2,"step":1,"chunk":{"type":"text-delta","index":0,"text":"CONTROLLED_DOC_RELEASED_OK"}}}
+{"type":"assistant/chunk","data":{"turn":2,"step":1,"chunk":{"type":"block-end","index":0,"block":{"type":"text","text":"CONTROLLED_DOC_RELEASED_OK"}}}}
+{"type":"assistant/chunk","data":{"turn":2,"step":1,"chunk":{"type":"usage","usage":{"inputTokens":12,"outputTokens":4}}}}
+{"type":"assistant/chunk","data":{"turn":2,"step":1,"chunk":{"type":"finish","reason":{"kind":"stop"}}}}

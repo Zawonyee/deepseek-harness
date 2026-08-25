@@ -1,0 +1,152 @@
+{
+  "formatVersion": 1,
+  "benchmark": "CapabilityControllerV1",
+  "engine": "scripted",
+  "taskCount": 7,
+  "repetitions": 1,
+  "modes": {
+    "full": {
+      "trials": 7,
+      "taskSuccessRate": 1,
+      "userInterventionRate": 0.14286,
+      "averageInterventionsPerTrial": 0.14286,
+      "averageVisibleToolCount": 5,
+      "unnecessaryCapabilityGrantRate": 0.71429,
+      "capabilityExposure": {
+        "web.search": 1,
+        "email.send": 1,
+        "shell.execute": 1,
+        "cordis.runtime": 0
+      },
+      "highRiskCapabilityExposure": 1,
+      "riskExposure": 13,
+      "normalizedRiskExposure": 0.61905,
+      "schemaChangeCount": 0,
+      "schemaChurnRate": 0,
+      "activationCount": 0,
+      "reuseCount": 0,
+      "revokeCount": 0,
+      "expireCount": 0,
+      "denyCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1610,
+        "outputTokens": 142,
+        "cacheReadTokens": 70,
+        "cacheWriteTokens": 0,
+        "reasoningTokens": 0,
+        "billedInputTokens": 1680,
+        "totalTokens": 1822,
+        "reportedSteps": 13,
+        "unreportedSteps": 0
+      }
+    },
+    "raw-cordis": {
+      "trials": 7,
+      "taskSuccessRate": 1,
+      "userInterventionRate": 0.57143,
+      "averageInterventionsPerTrial": 0.57143,
+      "averageVisibleToolCount": 9.55,
+      "unnecessaryCapabilityGrantRate": 0.53846,
+      "capabilityExposure": {
+        "web.search": 0.5,
+        "email.send": 0.25,
+        "shell.execute": 0.125,
+        "cordis.runtime": 1
+      },
+      "highRiskCapabilityExposure": 1,
+      "riskExposure": 10.5,
+      "normalizedRiskExposure": 0.5,
+      "schemaChangeCount": 10,
+      "schemaChurnRate": 0.76923,
+      "activationCount": 6,
+      "reuseCount": 1,
+      "revokeCount": 4,
+      "expireCount": 0,
+      "denyCount": 1,
+      "tokenUsage": {
+        "inputTokens": 3735,
+        "outputTokens": 292,
+        "cacheReadTokens": 90,
+        "cacheWriteTokens": 0,
+        "reasoningTokens": 0,
+        "billedInputTokens": 3825,
+        "totalTokens": 4117,
+        "reportedSteps": 20,
+        "unreportedSteps": 0
+      }
+    },
+    "controller": {
+      "trials": 7,
+      "taskSuccessRate": 1,
+      "userInterventionRate": 0.57143,
+      "averageInterventionsPerTrial": 0.57143,
+      "averageVisibleToolCount": 4.52381,
+      "unnecessaryCapabilityGrantRate": 0,
+      "capabilityExposure": {
+        "web.search": 0.5,
+        "email.send": 0.25,
+        "shell.execute": 0.125,
+        "cordis.runtime": 0
+      },
+      "highRiskCapabilityExposure": 0.375,
+      "riskExposure": 2.5,
+      "normalizedRiskExposure": 0.11905,
+      "schemaChangeCount": 10,
+      "schemaChurnRate": 0.71429,
+      "activationCount": 6,
+      "reuseCount": 1,
+      "revokeCount": 4,
+      "expireCount": 0,
+      "denyCount": 1,
+      "tokenUsage": {
+        "inputTokens": 2393,
+        "outputTokens": 208,
+        "cacheReadTokens": 90,
+        "cacheWriteTokens": 0,
+        "reasoningTokens": 0,
+        "billedInputTokens": 2483,
+        "totalTokens": 2691,
+        "reportedSteps": 21,
+        "unreportedSteps": 0
+      }
+    }
+  },
+  "deltasFromFull": {
+    "raw-cordis": {
+      "trials": 0,
+      "taskSuccessRate": 0,
+      "userInterventionRate": 0.42857,
+      "averageInterventionsPerTrial": 0.42857,
+      "averageVisibleToolCount": 4.55,
+      "unnecessaryCapabilityGrantRate": -0.17583,
+      "highRiskCapabilityExposure": 0,
+      "riskExposure": -2.5,
+      "normalizedRiskExposure": -0.11905,
+      "schemaChangeCount": 10,
+      "schemaChurnRate": 0.76923,
+      "activationCount": 6,
+      "reuseCount": 1,
+      "revokeCount": 4,
+      "expireCount": 0,
+      "denyCount": 0
+    },
+    "controller": {
+      "trials": 0,
+      "taskSuccessRate": 0,
+      "userInterventionRate": 0.42857,
+      "averageInterventionsPerTrial": 0.42857,
+      "averageVisibleToolCount": -0.47619,
+      "unnecessaryCapabilityGrantRate": -0.71429,
+      "highRiskCapabilityExposure": -0.625,
+      "riskExposure": -10.5,
+      "normalizedRiskExposure": -0.5,
+      "schemaChangeCount": 10,
+      "schemaChurnRate": 0.71429,
+      "activationCount": 6,
+      "reuseCount": 1,
+      "revokeCount": 4,
+      "expireCount": 0,
+      "denyCount": 0
+    }
+  }
+}

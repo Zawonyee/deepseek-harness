@@ -40,6 +40,21 @@ function requestOf(agent: Agent, overrides: Partial<ApprovalRequest> = {}): Appr
 }
 
 describe('ApprovalService.request', () => {
+  it('returns the exact audit id and outcome from requestWithReceipt without a second decision', async () => {
+    const ctx = await mounted()
+    const { agent, appended } = fakeAgent()
+    const answer = vi.fn(() => Promise.resolve<ApprovalOutcome>('allowed-once'))
+    ctx.on('approval/request', answer)
+
+    const receipt = await ctx.approval.requestWithReceipt(requestOf(agent))
+
+    expect(receipt).toEqual({ id: appended[0]?.data['id'], outcome: 'allowed-once' })
+    expect(appended).toHaveLength(2)
+    expect(appended.map(event => event.type)).toEqual(['approval/asked', 'approval/decided'])
+    expect(appended[1]?.data['id']).toBe(receipt.id)
+    expect(answer).toHaveBeenCalledOnce()
+  })
+
   it('throws before appending anything when no turn has ever opened (idle ask)', async () => {
     const ctx = await mounted()
     const { agent, appended } = fakeAgent([])

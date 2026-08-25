@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-08-20-skip-private-solution-package-in-tsdown.md
+2026-08-20-skip-private-solution-package-in-tsdown.md: 840f1c62fa7dbc8670d1062fd30aee44c0305103
+2026-08-20-skip-private-solution-package-in-tsdown.zh.md: 7813faf6030237ae80cb156f640590a0ecdc87f6

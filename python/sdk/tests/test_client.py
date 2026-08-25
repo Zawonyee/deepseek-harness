@@ -124,6 +124,72 @@ for line in sys.stdin:
     }
 
 
+def test_run_result_preserves_required_capability_change_json(tmp_path: Path) -> None:
+    script = tmp_path / "capability_runtime.py"
+    script.write_text(
+        """
+import json
+import sys
+
+for line in sys.stdin:
+    msg = json.loads(line)
+    method = msg.get("method")
+    if method == "initialize":
+        print(json.dumps({"jsonrpc": "2.0", "id": msg["id"], "result": {"serverInfo": {"name": "fake-runtime"}}}), flush=True)
+    elif method == "session/prompt":
+        session_id = msg["params"]["sessionId"]
+        print(json.dumps({"jsonrpc": "2.0", "method": "session.event", "params": {"sessionId": session_id, "event": {"type": "agent/inbox/spliced", "seq": 0, "time": 1777777777000, "data": {"target": "next-turn", "start": 0, "inserted": [{"id": "message-1"}]}}}}), flush=True)
+        print(json.dumps({"jsonrpc": "2.0", "id": msg["id"], "result": {"messageId": "message-1"}}), flush=True)
+        print(json.dumps({"jsonrpc": "2.0", "method": "session.event", "params": {"sessionId": session_id, "event": {"type": "capability/change", "seq": 1, "time": 1777777777001, "data": {"kind": "granted", "version": 1, "requestId": "capreq-python-0001", "leaseId": "caplease-python-0001", "provider": "fixture-provider-web", "risk": "low", "scope": "session", "binding": {"kind": "session"}, "toolNames": ["web_search"], "idleTtlMs": 600000, "revokeAfterSuccess": False}}}}), flush=True)
+        print(json.dumps({"jsonrpc": "2.0", "method": "session.status", "params": {"sessionId": session_id, "status": "idle"}}), flush=True)
+    elif method == "shutdown":
+        print(json.dumps({"jsonrpc": "2.0", "id": msg["id"], "result": {}}), flush=True)
+        break
+""".strip()
+    )
+    expected = {
+        "type": "capability/change",
+        "seq": 1,
+        "time": 1_777_777_777_001,
+        "data": {
+            "kind": "granted",
+            "version": 1,
+            "requestId": "capreq-python-0001",
+            "leaseId": "caplease-python-0001",
+            "provider": "fixture-provider-web",
+            "risk": "low",
+            "scope": "session",
+            "binding": {"kind": "session"},
+            "toolNames": ["web_search"],
+            "idleTtlMs": 600_000,
+            "revokeAfterSuccess": False,
+        },
+    }
+    seen: list[Notification] = []
+    with DeepSeekHarness(
+        launch_args_override=(sys.executable, str(script)),
+        cwd=str(tmp_path),
+    ) as harness:
+        result = harness.run(
+            "grant web search",
+            session_id="main",
+            on_notification=seen.append,
+        )
+
+    capability_event = next(event for event in result.events if event.get("type") == "capability/change")
+    capability_notification = next(
+        notification
+        for notification in result.notifications
+        if notification.method == "session.event"
+        and notification.payload.get("event") == expected
+    )
+    assert capability_event == expected
+    assert capability_notification in seen
+    assert "ignorable" not in capability_event
+    assert type(capability_event["data"]["requestId"]) is str
+    assert type(capability_event["data"]["leaseId"]) is str
+
+
 def test_session_run_invokes_notification_callback_before_returning(tmp_path: Path) -> None:
     script = tmp_path / "fake_runtime.py"
     script.write_text(

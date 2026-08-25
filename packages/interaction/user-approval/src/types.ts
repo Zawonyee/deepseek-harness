@@ -27,3 +27,11 @@ export function ApprovalRequestId(id: string): ApprovalRequestId {
  * request, or unavailable answerer. Callers fail closed on `unavailable`.
  */
 export type ApprovalOutcome = 'allowed-once' | 'rejected' | 'cancelled' | 'unavailable'
+
+/** The durable audit identifier and closed outcome produced by one approval request. */
+export interface ApprovalReceipt {
+  /** Identifier shared by the request's `approval/asked` and `approval/decided` events. */
+  readonly id: ApprovalRequestId
+  /** Closed outcome recorded by the matching `approval/decided` event. */
+  readonly outcome: ApprovalOutcome
+}

@@ -28,6 +28,18 @@ type ApprovalRequestId = Branded<'ApprovalRequestId'>
 type ApprovalOutcome = 'allowed-once' | 'rejected' | 'cancelled' | 'unavailable'
 ```
 
+`requestWithReceipt()` 返回同一次持久决定的标识与结果。能力激活使用该标识把自身的申请审计与审批事件对关联起来，同时保留只返回结果的兼容 `request()` API。
+
+```ts type-equiv
+/** The durable audit identifier and closed outcome produced by one approval request. */
+interface ApprovalReceipt {
+  /** Identifier shared by the request's `approval/asked` and `approval/decided` events. */
+  readonly id: ApprovalRequestId
+  /** Closed outcome recorded by the matching `approval/decided` event. */
+  readonly outcome: ApprovalOutcome
+}
+```
+
 ## 按会话策略
 
 `ApprovalPolicy` 决定在交互式应答者运行之前发生什么。`ask` 委托给组合的应答者链，链的无应答默认值为 `unavailable`；`never` 确定性地返回 `rejected`，不分发任何应答者。生效值为会话日志中最后一条 `approval/policy` 事件，回退到服务配置。`setApprovalPolicy(session, policy)` 是唯一的写入路径，因此回放能重建覆盖值。
@@ -130,6 +142,17 @@ setPolicy(agent: Agent, policy: ApprovalPolicy): void
  *   append commit point.
  */
 async request(req: ApprovalRequest): Promise<ApprovalOutcome>
+
+/**
+ * Ask the composed answerers once and return the exact durable audit receipt.
+ * The returned id is shared by the sole `approval/asked` and
+ * `approval/decided` events appended for this request.
+ * @param req - the pending decision (agent, tool identity, reason, signal).
+ * @returns the audit id and closed outcome from one decision.
+ * @throws when no turn is open or either audit event fails before the session
+ *   append commit point.
+ */
+async requestWithReceipt(req: ApprovalRequest): Promise<ApprovalReceipt>
 
 /**
  * Read the session override without applying the configured default.

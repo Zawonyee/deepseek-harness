@@ -293,6 +293,7 @@ const subsystemGroups = [
     ['subagent.md', '子代理', 'Subagents'],
   ]],
   ['策略与交互', 'Policy and interaction', [
+    ['capability.md', '能力控制', 'Capability control'],
     ['approval.md', '审批', 'Approvals'],
     ['permission-presets.md', '权限预设', 'Permission presets'],
     ['sandbox.md', '沙箱', 'Sandboxing'],
