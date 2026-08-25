@@ -143,6 +143,8 @@
     "demo:cordis": "node scripts/demo-cordis.mjs",
     "demo:acp": "node --import tsx packages/examples/acp-demo/src/bin.ts --config examples/acp-agent/cordis.yml",
     "mock:llm": "node --import tsx packages/test-support/llm-mock-server/src/bin.ts",
+    "benchmark:toolret:fetch": "tsx scripts/toolret/fetch.ts",
+    "benchmark:toolret": "tsx scripts/toolret/benchmark.ts",
     "dev:web": "tsx scripts/dev-web.ts --poll",
     "postinstall": "node scripts/install-lefthook.mjs"
   },
@@ -162,6 +164,7 @@
     "eslint-plugin-sonarjs": "^4.1.0",
     "execa": "^10.0.0",
     "fast-check": "^4.8.0",
+    "hyparquet": "1.28.2",
     "istanbul-lib-report": "^3.0.1",
     "js-yaml": "^4.2.0",
     "jscpd": "^5.0.12",

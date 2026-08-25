@@ -60,6 +60,9 @@ importers:
       fast-check:
         specifier: ^4.8.0
         version: 4.8.0
+      hyparquet:
+        specifier: 1.28.2
+        version: 1.28.2
       istanbul-lib-report:
         specifier: ^3.0.1
         version: 3.0.1
@@ -12901,6 +12904,9 @@ packages:
     resolution: {integrity: sha512-eKCa6bwnJhvxj14kZk5NCPc6Hb6BdsU9DZcOnmQKSnO1VKrfV0zCvtttPZUsBvjmNDn8rpcJfpwSYnHBjc95MQ==}
     engines: {node: '>=18.18.0'}
 
+  hyparquet@1.28.2:
+    resolution: {integrity: sha512-+24r0j3oA8dzFYQlPfSeua5JacoPmJPSqbyEGbhleuahOJ2cablgXTk862Pq8sMjkw7/uPucLgPpIOJzWxR8Jg==}
+
   iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
     engines: {node: '>=0.10.0'}
@@ -18225,6 +18231,8 @@ snapshots:
       - supports-color
 
   human-signals@8.0.1: {}
+
+  hyparquet@1.28.2: {}
 
   iconv-lite@0.6.3:
     dependencies:
